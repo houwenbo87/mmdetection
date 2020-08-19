@@ -253,6 +253,20 @@ class Resize(object):
                     backend=self.backend)
             results['gt_semantic_seg'] = gt_seg
 
+    def _resize_parkspaces(self, results):
+        if 'gt_parkspaces' not in results:
+            return
+        img_shape = results['img_shape']
+        parkspaces = results['gt_parkspaces']
+        if isinstance(results['scale_factor'], float):
+            parkspaces[..., 0:2] = parkspaces[..., 0:2] * results['scale_factor']
+        else:
+            parkspaces[..., 0] = parkspaces[..., 0] * results['scale_factor'][0]
+            parkspaces[..., 1] = parkspaces[..., 1] * results['scale_factor'][1]
+        parkspaces[..., 0::2] = np.clip(parkspaces[..., 0::2], 0, img_shape[1] - 1)
+        parkspaces[..., 1::2] = np.clip(parkspaces[..., 1::2], 0, img_shape[0] - 1)
+        results['gt_parkspaces'] = parkspaces
+
     def __call__(self, results):
         """Call function to resize images, bounding boxes, masks, semantic
         segmentation map.
@@ -282,6 +296,7 @@ class Resize(object):
         self._resize_bboxes(results)
         self._resize_masks(results)
         self._resize_seg(results)
+        self._resize_parkspaces(results)
         return results
 
     def __repr__(self):
@@ -341,6 +356,27 @@ class RandomFlip(object):
             raise ValueError(f"Invalid flipping direction '{direction}'")
         return flipped
 
+    def parkspaces_flip(self, parkspaces, img_shape, direction):
+        """Flip keypoints horizontally.
+
+        Args:
+            keypts(ndarray): shape (..., 3*n*k)
+            img_shape(tuple): (height, width)
+        """
+        assert direction == 'horizontal'
+        assert (parkspaces.shape[-1] % 3 == 0) and (parkspaces.shape[-2] == 4)
+        w = img_shape[1]
+        flipped = parkspaces.copy()
+        flipped[..., 0::3] = w - parkspaces[..., 0::3] - 1
+        # change order
+        order_changed = flipped.copy()
+        if self.change_order:
+            order_changed[:, 0, :] = flipped[:, 1, :]
+            order_changed[:, 1, :] = flipped[:, 0, :]
+            order_changed[:, 2, :] = flipped[:, 3, :]
+            order_changed[:, 3, :] = flipped[:, 2, :]
+        return order_changed
+
     def __call__(self, results):
         """Call function to flip bounding boxes, masks, semantic segmentation
         maps.
@@ -376,6 +412,13 @@ class RandomFlip(object):
             for key in results.get('seg_fields', []):
                 results[key] = mmcv.imflip(
                     results[key], direction=results['flip_direction'])
+
+            # flip parkspace
+            key = 'gt_parkspaces'
+            if key in results:
+                results[key] = self.parkspaces_flip(results[key], results['img_shape'],
+                    direction=results['flip_direction'])
+
         return results
 
     def __repr__(self):
@@ -585,6 +628,14 @@ class RandomCrop(object):
         # crop semantic seg
         for key in results.get('seg_fields', []):
             results[key] = results[key][crop_y1:crop_y2, crop_x1:crop_x2]
+
+        if 'gt_parkspaces' in results:
+            results['gt_parkspaces'][..., 0::3] -= crop_x1
+            results['gt_parkspaces'][..., 1::3] -= crop_y1
+            cx = results['gt_parkspaces'][:,:,0].mean(1)
+            cy = results['gt_parkspaces'][:,:,1].mean(1)
+            indx = np.where((cx > 0) * (cy > 0) * (cx < img_shape[1]) * (cy < img_shape[0]))
+            results['gt_parkspaces'] = results['gt_parkspaces'][indx]
 
         return results
 

@@ -12,6 +12,7 @@ from .wider_face import WIDERFaceDataset
 from .xml_style import XMLDataset
 
 from .object_2d import Object2DDataset
+from .labelme import LabelmeDataset
 
 __all__ = [
     'CustomDataset', 'XMLDataset', 'CocoDataset', 'DeepFashionDataset',
@@ -19,5 +20,5 @@ __all__ = [
     'LVISV1Dataset', 'GroupSampler', 'DistributedGroupSampler',
     'DistributedSampler', 'build_dataloader', 'ConcatDataset', 'RepeatDataset',
     'ClassBalancedDataset', 'WIDERFaceDataset', 'DATASETS', 'PIPELINES',
-    'build_dataset', 'Object2DDataset'
+    'build_dataset', 'Object2DDataset', 'LabelmeDataset'
 ]

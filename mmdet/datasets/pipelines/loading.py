@@ -185,12 +185,14 @@ class LoadAnnotations(object):
                  with_label=True,
                  with_mask=False,
                  with_seg=False,
+                 with_parkspace=False,
                  poly2mask=True,
                  file_client_args=dict(backend='disk')):
         self.with_bbox = with_bbox
         self.with_label = with_label
         self.with_mask = with_mask
         self.with_seg = with_seg
+        self.with_parkspace = with_parkspace
         self.poly2mask = poly2mask
         self.file_client_args = file_client_args.copy()
         self.file_client = None
@@ -227,6 +229,16 @@ class LoadAnnotations(object):
 
         results['gt_labels'] = results['ann_info']['labels'].copy()
         return results
+
+    def _load_parkspaces(self, results):
+        ann_info = results['ann_info']
+        results['gt_parkspaces'] = ann_info['parkspaces'].copy()
+        return results
+
+    def _load_parkspace_labels(self, results):
+        results['gt_parkspace_labels'] = results['ann_info']['parkspace_labels'].copy()
+        return results
+
 
     def _poly2mask(self, mask_ann, img_h, img_w):
         """Private function to convert masks represented with polygon to
@@ -339,6 +351,10 @@ class LoadAnnotations(object):
             results = self._load_masks(results)
         if self.with_seg:
             results = self._load_semantic_seg(results)
+        if self.with_parkspace:
+            results = self._load_parkspace_labels(results)
+            results = self._load_parkspaces(results)
+
         return results
 
     def __repr__(self):
